@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Environment Variables & Secrets
+.env
+*.env
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
