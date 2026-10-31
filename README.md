@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 AgentForge: Agentic AI using LangGraph
+# 🧠 AgentForge: Agentic AI
 
 ### *Mastering Autonomous Systems, Cyclic Graphs & Production Agents*
 
