@@ -14,11 +14,6 @@
 <br/>
 
 <p align="center">
-  <b>A comprehensive laboratory and study repository tracking my deep dive into the <br/>
-  <a href="https://www.youtube.com/playlist?list=PLKnIA16_RmvbeN_1LspqecoxbK-tFzR-M">Agentic AI using LangGraph</a></b>
-</p>
-
-<p align="center">
   <a href="#-architecture-paradigm">Architecture</a> •
   <a href="#-learning-journey-roadmap">Roadmap</a> •
   <a href="#-prerequisites">Prerequisites</a> •
