@@ -8,12 +8,12 @@ import streamlit as st
 # Ensure 2_Chatbot directory is in Python path regardless of execution directory
 sys.path.append(str(Path(__file__).parent))
 
-from chatbot import stream_chat
+from chatbot import get_thread_history, stream_chat
 
 # Page configuration
 st.set_page_config(page_title="LangGraph Chatbot", page_icon="🤖", layout="centered")
 
-# Custom CSS for a sleek, designable "Thinking" status UI (Light & Dark mode friendly)
+# Custom CSS for sleek ChatGPT/Gemini sidebar & designable "Thinking" status UI
 st.markdown(
     """
     <style>
@@ -72,6 +72,31 @@ st.markdown(
         color: var(--thinking-badge-color);
         border: 1px solid rgba(99, 102, 241, 0.3);
     }
+
+    /* ChatGPT / Gemini style left sidebar chat list */
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="stBaseButton-secondary"],
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] [data-testid="stBaseButton-primary"] {
+        justify-content: flex-start;
+        text-align: left;
+        border-radius: 10px;
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
+    }
+
+    /* Light blue "New Chat" button */
+    .st-key-new_chat_btn button {
+        background-color: #93c5fd !important;
+        border-color: #60a5fa !important;
+        color: #0f172a !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .st-key-new_chat_btn button:hover {
+        background-color: #60a5fa !important;
+        border-color: #3b82f6 !important;
+        color: #0f172a !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -90,24 +115,98 @@ def format_thinking_step(icon: str, text: str, *badges: str) -> str:
     )
 
 
-st.title("🤖 LangGraph AI Chatbot")
-st.caption("Powered by LangGraph, Google Gemini & Streamlit")
+def generate_thread_id() -> str:
+    """Create a unique conversation thread identifier."""
+    return str(uuid.uuid4())
+
+
+def new_chat() -> None:
+    """Start a fresh chat thread unless the current thread is already empty."""
+    current_id = st.session_state['thread_id']
+    if not st.session_state['message_history'] and current_id in st.session_state['chat_threads']:
+        return
+    new_id = generate_thread_id()
+    st.session_state['thread_id'] = new_id
+    st.session_state['chat_threads'].insert(0, new_id)
+    st.session_state['message_history'] = []
+
+
+def switch_thread(thread_id: str) -> None:
+    """Load an existing thread's history from LangGraph checkpointer."""
+    st.session_state['thread_id'] = thread_id
+    history = get_thread_history(thread_id)
+    thinking_map = st.session_state['thinking_cache'].get(thread_id, {})
+    for idx, msg in enumerate(history):
+        if msg['role'] == 'assistant' and idx in thinking_map:
+            msg['thinking'] = thinking_map[idx]
+    st.session_state['message_history'] = history
+
+
+def delete_thread(thread_id: str) -> None:
+    """Remove a thread from the sidebar history list."""
+    if thread_id in st.session_state['chat_threads']:
+        st.session_state['chat_threads'].remove(thread_id)
+    st.session_state['thread_titles'].pop(thread_id, None)
+    st.session_state['thinking_cache'].pop(thread_id, None)
+
+    if st.session_state['thread_id'] == thread_id:
+        if st.session_state['chat_threads']:
+            switch_thread(st.session_state['chat_threads'][0])
+        else:
+            new_id = generate_thread_id()
+            st.session_state['thread_id'] = new_id
+            st.session_state['chat_threads'] = [new_id]
+            st.session_state['message_history'] = []
+
 
 # Session state initialization
 if 'thread_id' not in st.session_state:
-    st.session_state['thread_id'] = 'thread-1'
+    st.session_state['thread_id'] = generate_thread_id()
+
+if 'chat_threads' not in st.session_state:
+    st.session_state['chat_threads'] = [st.session_state['thread_id']]
+
+if 'thread_titles' not in st.session_state:
+    st.session_state['thread_titles'] = {}
+
+if 'thinking_cache' not in st.session_state:
+    st.session_state['thinking_cache'] = {}
 
 if 'message_history' not in st.session_state:
     st.session_state['message_history'] = []
 
-# Sidebar controls
+# Left Sidebar (ChatGPT / Gemini style navigation)
 with st.sidebar:
-    st.header("⚙️ Chat Settings")
-    st.write(f"**Current Thread:** `{st.session_state['thread_id']}`")
-    if st.button("🗑️ Clear Conversation", use_container_width=True):
-        st.session_state['message_history'] = []
-        st.session_state['thread_id'] = f"thread-{uuid.uuid4().hex[:6]}"
+    st.title("💬 AgentForge")
+    if st.button("➕ New Chat", key="new_chat_btn", type="primary", use_container_width=True):
+        new_chat()
         st.rerun()
+
+    st.divider()
+    st.caption("Recent Chats")
+
+    for tid in list(st.session_state['chat_threads']):
+        title = st.session_state['thread_titles'].get(tid, "New Chat")
+        is_active = tid == st.session_state['thread_id']
+        col_chat, col_del = st.columns([0.82, 0.18], gap="small")
+        with col_chat:
+            if st.button(
+                f"{'💬' if is_active else '💭'} {title}",
+                key=f"chat_{tid}",
+                type="primary" if is_active else "secondary",
+                use_container_width=True,
+            ):
+                if not is_active:
+                    switch_thread(tid)
+                    st.rerun()
+        with col_del:
+            if st.button("✕", key=f"del_{tid}", help="Delete chat", use_container_width=True):
+                delete_thread(tid)
+                st.rerun()
+
+# Main Chat Header
+st.title("🤖 LangGraph AI Chatbot")
+st.caption("Powered by LangGraph, Google Gemini & Streamlit")
 
 # Welcome banner when no messages exist yet
 if not st.session_state['message_history']:
@@ -127,6 +226,19 @@ for message in st.session_state['message_history']:
 user_input = st.chat_input('Type your message here...')
 
 if user_input:
+    active_tid = st.session_state['thread_id']
+    is_first_message = len(st.session_state['message_history']) == 0
+
+    # Auto-name the thread from the first user message & move to top of Recent Chats
+    if active_tid not in st.session_state['thread_titles']:
+        clean_title = " ".join(user_input.split())
+        st.session_state['thread_titles'][active_tid] = (
+            clean_title[:28] + "..." if len(clean_title) > 28 else clean_title
+        )
+    if active_tid in st.session_state['chat_threads']:
+        st.session_state['chat_threads'].remove(active_tid)
+    st.session_state['chat_threads'].insert(0, active_tid)
+
     # 1. Add user message to history & display immediately
     st.session_state['message_history'].append({'role': 'user', 'content': user_input})
     with st.chat_message('user'):
@@ -152,7 +264,7 @@ if user_input:
 
         try:
             ai_message = st.write_stream(
-                stream_chat(user_input, st.session_state['thread_id'], on_step=handle_step)
+                stream_chat(user_input, active_tid, on_step=handle_step)
             )
             elapsed = time.perf_counter() - start_time
             done_step = format_thinking_step("✅", f"Completed in <b>{elapsed:.2f}s</b>")
@@ -162,12 +274,20 @@ if user_input:
             final_label = f"✨ Thought for {elapsed:.2f}s"
             status.update(label=final_label, state="complete", expanded=False)
 
-            # 3. Add full AI message + thinking summary to session history
+            thinking_data = {'label': final_label, 'steps': thinking_steps}
+
+            # 3. Save assistant message + thinking summary to session & cache
+            msg_index = len(st.session_state['message_history'])
+            st.session_state['thinking_cache'].setdefault(active_tid, {})[msg_index] = thinking_data
             st.session_state['message_history'].append({
                 'role': 'assistant',
                 'content': ai_message,
-                'thinking': {'label': final_label, 'steps': thinking_steps},
+                'thinking': thinking_data,
             })
+
+            # Refresh UI after first message so sidebar title & welcome banner update immediately
+            if is_first_message:
+                st.rerun()
         except Exception as exc:
             status.update(label="❌ Error generating response", state="error", expanded=True)
             st.error(f"Failed to generate response: {exc}")
