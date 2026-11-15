@@ -2,9 +2,10 @@ from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated, Iterator, Callable
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessageChunk
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import add_messages
 from dotenv import load_dotenv
+import sqlite3
 
 load_dotenv()
 
@@ -21,9 +22,9 @@ def chat_node(state: ChatState):
     return {"messages": [response]}
 
 
+conn = sqlite3.connect(database='chatbot.db', check_same_thread=False)
 # Checkpointer
-checkpointer = InMemorySaver()
-
+checkpointer = SqliteSaver(conn=conn)
 graph = StateGraph(ChatState)
 graph.add_node("chat_node", chat_node)
 graph.add_edge(START, "chat_node")
