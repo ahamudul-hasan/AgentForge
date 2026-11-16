@@ -1,7 +1,12 @@
 langgraph
 langgraph-checkpoint-sqlite
 langchain
+langchain-community
 langchain-google-genai
 python-dotenv
 ipykernel
 streamlit
+faiss-cpu
+pypdf
+duckduckgo_search
+langchainhub
