@@ -19,3 +19,9 @@ __pycache__/
 *.sqlite
 *.sqlite3
 *.db
+
+# Vector store indices & caches
+.indices/
+.faiss_*/
+*.faiss
+*.pkl

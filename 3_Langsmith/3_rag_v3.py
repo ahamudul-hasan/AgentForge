@@ -15,13 +15,19 @@ from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 
-PDF_PATH = "islr.pdf"  # <- change to your file
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_PDF = os.path.join(SCRIPT_DIR, "islr.pdf")
+PDF_PATH = DEFAULT_PDF if os.path.exists(DEFAULT_PDF) else "islr.pdf"
 
 # ----------------- helpers (not traced individually) -----------------
 @traceable(name="load_pdf")
-def load_pdf(path: str):
+def load_pdf(path: str, max_pages: int | None = 20):
     loader = PyPDFLoader(path)
-    return loader.load()  # list[Document]
+    docs = loader.load()  # list[Document]
+    if max_pages and len(docs) > max_pages:
+        print(f"[*] Limiting to first {max_pages} pages (of {len(docs)}) to respect Gemini free-tier rate limits.")
+        docs = docs[:max_pages]
+    return docs
 
 @traceable(name="split_documents")
 def split_documents(docs, chunk_size=1000, chunk_overlap=150):

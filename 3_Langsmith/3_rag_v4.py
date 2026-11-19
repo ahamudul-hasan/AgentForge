@@ -18,14 +18,20 @@ from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 
-PDF_PATH = "islr.pdf"  # change to your file
-INDEX_ROOT = Path(".indices")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_PDF = os.path.join(SCRIPT_DIR, "islr.pdf")
+PDF_PATH = DEFAULT_PDF if os.path.exists(DEFAULT_PDF) else "islr.pdf"
+INDEX_ROOT = Path(SCRIPT_DIR) / ".indices"
 INDEX_ROOT.mkdir(exist_ok=True)
 
 # ----------------- helpers (traced) -----------------
 @traceable(name="load_pdf")
-def load_pdf(path: str):
-    return PyPDFLoader(path).load()  # list[Document]
+def load_pdf(path: str, max_pages: int | None = 20):
+    docs = PyPDFLoader(path).load()  # list[Document]
+    if max_pages and len(docs) > max_pages:
+        print(f"[*] Limiting to first {max_pages} pages (of {len(docs)}) to respect Gemini free-tier rate limits.")
+        docs = docs[:max_pages]
+    return docs
 
 @traceable(name="split_documents")
 def split_documents(docs, chunk_size=1000, chunk_overlap=150):

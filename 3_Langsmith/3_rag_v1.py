@@ -10,11 +10,17 @@ from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 
-PDF_PATH = "islr.pdf"  # <-- change to your PDF filename
+# Resolve PDF path relative to this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_PDF = os.path.join(SCRIPT_DIR, "islr.pdf")
+PDF_PATH = DEFAULT_PDF if os.path.exists(DEFAULT_PDF) else "islr.pdf"
 
 # 1) Load PDF
 loader = PyPDFLoader(PDF_PATH)
 docs = loader.load()  # one Document per page
+if len(docs) > 20:
+    print(f"[*] Limiting to first 20 pages (of {len(docs)}) to respect Gemini free-tier rate limits.")
+    docs = docs[:20]
 
 # 2) Chunk
 splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
