@@ -6,8 +6,11 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import add_messages
 from dotenv import load_dotenv
 import sqlite3
+import os
 
 load_dotenv()
+
+os.environ['LANGSMITH_PROJECT'] = 'chatbot'
 
 llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", streaming=True)
 
