@@ -8,7 +8,7 @@ import streamlit as st
 # Ensure 2_Chatbot directory is in Python path regardless of execution directory
 sys.path.append(str(Path(__file__).parent))
 
-from chatbot import get_thread_history, stream_chat
+from chatbot import get_thread_history, stream_chat, retrieve_all_threads
 
 # Page configuration
 st.set_page_config(page_title="LangGraph Chatbot", page_icon="🤖", layout="centered")
@@ -164,16 +164,26 @@ if 'thread_id' not in st.session_state:
     st.session_state['thread_id'] = generate_thread_id()
 
 if 'chat_threads' not in st.session_state:
-    st.session_state['chat_threads'] = [st.session_state['thread_id']]
+    saved = retrieve_all_threads()
+    if saved:
+        st.session_state['chat_threads'] = list(saved)
+        st.session_state['thread_id'] = saved[0]
+    else:
+        st.session_state['chat_threads'] = [st.session_state['thread_id']]
 
 if 'thread_titles' not in st.session_state:
     st.session_state['thread_titles'] = {}
+    for tid in st.session_state.get('chat_threads', []):
+        hist = get_thread_history(tid)
+        if hist and hist[0].get('role') == 'user':
+            clean_t = " ".join(hist[0].get('content', '').split())
+            st.session_state['thread_titles'][tid] = clean_t[:28] + "..." if len(clean_t) > 28 else clean_t
 
 if 'thinking_cache' not in st.session_state:
     st.session_state['thinking_cache'] = {}
 
 if 'message_history' not in st.session_state:
-    st.session_state['message_history'] = []
+    st.session_state['message_history'] = get_thread_history(st.session_state['thread_id'])
 
 # Left Sidebar (ChatGPT / Gemini style navigation)
 with st.sidebar:
@@ -257,10 +267,18 @@ if user_input:
         def handle_step(metadata: dict):
             node = metadata.get("langgraph_node", "unknown")
             model = metadata.get("ls_model_name", "LLM")
-            step_html = format_thinking_step("⚡", "Executing graph node", node, model)
+            tool_name = metadata.get("tool_name")
+            if node == "tools" or tool_name:
+                display_tool = tool_name or "tool"
+                step_html = format_thinking_step("🛠️", f"Running tool: <b>{escape(str(display_tool))}</b>", node)
+                status.update(label=f"🛠️ Using {display_tool}...", state="running")
+            elif node == "chat_node":
+                step_html = format_thinking_step("⚡", "Generating response...", node, model)
+                status.update(label="⚡ Generating response...", state="running")
+            else:
+                step_html = format_thinking_step("⚡", "Executing graph node", node, model)
             thinking_steps.append(step_html)
             status.markdown(step_html, unsafe_allow_html=True)
-            status.update(label="⚡ Generating response...", state="running")
 
         try:
             ai_message = st.write_stream(

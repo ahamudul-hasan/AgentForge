@@ -8,5 +8,6 @@ ipykernel
 streamlit
 faiss-cpu
 pypdf
-duckduckgo_search
+duckduckgo-search
+requests
 langchainhub
